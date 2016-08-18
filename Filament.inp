@@ -1,0 +1,241 @@
+*Heading
+Axisymmetric filament
+**
+** This input file is for the simulation of a Rayleigh-Plateau-type 
+**    instability in a 2D axisymmetric filament with surface tension
+**    acting on the outer surface.  It is to be used with the 
+**    UEL subroutine, uel_surften_2D.for.
+**
+** UNITS:  Length - mm, Time - sec, Angle - radians,
+**	   Force - microNewtons, Mass - grams,
+**	   Stress - microNewton/mm^2 = Pa, 
+**	   Density - g/mm^3, Surface Tension = microNewtons/mm
+**
+** REDUCED INTEGRATION: In order to use reduced integration four 
+**     changes should be made:
+**
+**     1. In the '*User element' command, Variables should be changed
+**        from 36 to 9.
+**     2. The element type of the dummy mesh should be changed
+**        from CAX4 to CAX4R.
+**     3. In the Material Definition section of this input file,
+**        the '*Hourglass Stiffness' command and subsequent line
+**        should be uncommented.
+**     4. In the UEL subroutine, nInt should be set to 1.
+**
+** DISPLACEMENT STEP RESTRICTION: To specify the maximum allowable 
+**     displacement increment in terms of a fraction of the element
+**     size, set the parameter maxDisp in the UEL subroutine.  For 
+**     the filament simulations, maxDisp=0.25 was used.
+**
+** David L. Henann, July 2013
+**
+************************************************************************
+**			PARAMETERS
+************************************************************************
+**
+*Parameter
+**
+** Size of specimen
+** Length (mm)
+l0 = 10.0
+** Thickness (mm)
+t0 = 0.25
+** Outer radius (mm)
+ro = 0.25
+** Inner radius (mm)
+ri = ro - t0
+** Imperfection - fraction of thickness
+imp = 0.00004
+**
+** Material properties
+** Shear modulus (Pa)
+G0 = 20.0
+**
+** Bulk modulus (Pa)
+Kbulk = 20.0e3
+**
+** Locking stretch
+Im = 5.37
+**
+** Normalized surface tension ramp rate (1/s)
+gamma_dot = 1.0
+**
+** Ramp time (s)
+t = 10.0
+**
+** Max normalized surface tension
+gamma_norm = t*gamma_dot
+**
+** number of elements in the x and y directions
+ex = 6
+ey = 240
+**
+************************************************************************
+** calculations for geometry, node numbering, loads, etc., don't change
+**
+** geometry (mm)
+ro_imp = ro - imp*(ro-ri)
+**
+** node/element numbering
+nlayer = ex + 1
+**
+n1 = 1
+n2 = n1 + ex
+n3 = ey*nlayer + 1
+n4 = n3 + ex
+e1 = 1
+e2 = e1 - 1 + ex
+e3 = 1 + (ey - 1)*ex + (e1 - 1)
+e4 = e3 + ex - 1
+**
+elmas1 = n1
+elmas2 = n1 + 1
+elmas3 = n1 + 1 + nlayer
+elmas4 = n1 + nlayer
+**
+e1dum = ex*ey + 1
+e2dum = e1dum - 1 + ex
+e3dum = 1 + (ey - 1)*ex + (e1dum - 1)
+e4dum = e3dum + ex - 1
+**
+** Hourglass stiffness (Pa)
+Ghour = 0.005*G0
+**
+** Time parameters (s)
+Gneq = G0/10.0
+eta = (1.0e-5)*G0
+tf = 2.0*t
+delt = t/100.0
+**
+** Surface tension (muN/mm)
+gamma = gamma_norm*G0*ro
+**
+************************************************************************
+**			MODEL DEFINITION
+************************************************************************
+**
+** Nodes
+**
+*Node
+<n1>,  <ri>,  0.0
+<n2>,  <ro>,  0.0
+<n3>,  <ri>,  <l0>
+<n4>,  <ro_imp>,  <l0>
+*Nset, nset=n1
+<n1>
+*Nset, nset=n2
+<n2>
+*Nset, nset=n3
+<n3>
+*Nset, nset=n4
+<n4>
+*Nfill, nset=left
+n1, n3, <ey>, <nlayer>
+*Nfill, nset=right
+n2, n4, <ey>, <nlayer>
+*Nfill, nset=Nall
+left, right, <ex>,1
+*Nset, nset=top, gen
+<n3>, <n4>, 1
+*Nset, nset=bottom, gen
+<n1>, <n2>, 1
+**
+** Elements
+**
+*User Element,Nodes=4,Type=U1,Iproperties=2,Properties=5,Coordinates=2,Variables=36,Unsymm
+1,2
+**
+*Element, type=U1
+<e1>, <elmas1>,<elmas2>,<elmas3>,<elmas4>
+*Elgen, elset=Elall
+<e1>,<ex>,1,1,<ey>,<nlayer>,<ex>
+*Elset, elset=eltop, gen
+<e3>, <e4>, 1
+*Elset, elset=elbot, gen
+<e1>, <e2>, 1
+*Elset, elset=elright, gen
+<e2>, <e4>, <ex>
+*Elset, elset=elleft, gen
+<e1>, <e3>, <ex>
+**
+** Make the dummy mesh, shares nodes with the real mesh,
+**  allows visualization of the results, access to 
+**  hourglass controls, and access to mechanical, 
+**  traction-type boundary conditions
+**
+*Element, type=CAX4
+<e1dum>, <elmas1>,<elmas2>,<elmas3>,<elmas4>
+*Elgen, elset=ElDummy
+<e1dum>,<ex>,1,1,<ey>,<nlayer>,<ex>
+*Elset, elset=eltopdum, gen
+<e3dum>, <e4dum>, 1
+*Elset, elset=elbotdum, gen
+<e1dum>, <e2dum>, 1
+*Elset, elset=elrightdum, gen
+<e2dum>, <e4dum>, <ex>
+*Elset, elset=elleftdum, gen
+<e1dum>, <e3dum>, <ex>
+************************************************************************
+**			MATERIAL DEFINITION
+************************************************************************
+**
+** Material properties for the real material
+**
+*uel property,elset=elall
+*******************************************************************
+**G0	Kbulk	Im	Gnoneq	eta	pe	matflag
+<G0>,	<Kbulk>,<Im>,	<Gneq>,	<eta>,	0,	2
+**
+*******************************************************************
+**
+** Dummy mesh material properties
+**
+*Solid section, elset=ElDummy, material=Material-1
+***Hourglass stiffness
+**250.0
+**
+*Material, name=Material-1
+** The dummy mesh stiffness is very small
+*Elastic
+1.e-20
+************************************************************************
+**			   AMPLITUDE
+************************************************************************
+*Amplitude, name=amp-1
+0.0,0.0,<t>,1.0,<tf>,0.0
+************************************************************************
+**			BOUNDARY CONDITIONS
+************************************************************************
+*Boundary
+top,ysymm
+left,xsymm
+bottom,ysymm
+************************************************************************
+**			STEP DEFINITION
+************************************************************************
+*Step, Name=Deform, nlgeom=yes, unsymm=yes, inc=50000
+*Static
+<delt>,<tf>,1.e-8,<delt>
+*CONTROLS, PARAMETERS=LINE SEARCH
+10,1.0,0.0001,0.25,0.10
+*CONTROLS, PARAMETERS=TIME INCREMENTATION
+,,,,,,,10,,,,,,
+**
+*Dload, amplitude = amp-1
+elright,U2,<gamma>
+**
+*Output, field, number interval=40
+*node output, nset=nall
+u
+*Element output, elset=ElDummy
+le
+**
+*Output, history
+*node output, nset=right
+u1,coor1
+*node output, nset=top
+rf2
+**
+*End Step
+************************************************************************
